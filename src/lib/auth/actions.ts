@@ -3,32 +3,33 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { lucia, validateRequest } from "./auth";
 import { generateId } from "lucia";
-import { db, userTable } from "../db";
+import { db, insertUserSchema, selectUserSchema, userTable } from "../db";
 import { LibsqlError } from "@libsql/client";
 import { Argon2id } from "oslo/password";
 import { ActionResult } from "./form";
 import { eq } from "drizzle-orm";
+import { parse, ValiError } from "valibot";
 
 export async function createAccount(
   _: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  const hashedPassword = await new Argon2id().hash(password);
-  const userId = generateId(15);
-
   try {
+    const rawData = parse(
+      insertUserSchema,
+      Object.fromEntries(formData.entries()),
+    );
+
+    const { password, ...data } = rawData;
+
+    const hashedPassword = await new Argon2id().hash(password);
+    const userId = generateId(15);
+
     await db.insert(userTable).values({
       id: userId,
-      firstName,
-      lastName,
-      email,
       password: hashedPassword,
       roleId: 1,
+      ...data,
     });
 
     const session = await lucia.createSession(userId, {});
@@ -39,6 +40,7 @@ export async function createAccount(
       sessionCookie.attributes,
     );
   } catch (e) {
+    if (e instanceof ValiError) return { error: e.message };
     if (e instanceof LibsqlError && e.code === "SQLITE_CONSTRAINT") {
       return {
         error: "Email already used",
@@ -55,29 +57,39 @@ export async function login(
   _: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  try {
+    const rawData = parse(
+      selectUserSchema,
+      Object.fromEntries(formData.entries()),
+    );
 
-  const existingUser = await db.query.userTable.findFirst({
-    where: eq(userTable.email, email),
-  });
-  if (!existingUser) return { error: "Incorrect email or password" };
+    const existingUser = await db.query.userTable.findFirst({
+      where: eq(userTable.email, rawData.email),
+    });
+    if (!existingUser) return { error: "Incorrect email or password" };
 
-  const validPassword = await new Argon2id().verify(
-    existingUser.password,
-    password,
-  );
-  if (!validPassword) return { error: "Incorrect email or password" };
+    const validPassword = await new Argon2id().verify(
+      existingUser.password,
+      rawData.password,
+    );
+    if (!validPassword) return { error: "Incorrect email or password" };
 
-  const session = await lucia.createSession(existingUser.id, {});
-  const sessionCookie = lucia.createSessionCookie(session.id);
-  cookies().set(
-    sessionCookie.name,
-    sessionCookie.value,
-    sessionCookie.attributes,
-  );
+    const session = await lucia.createSession(existingUser.id, {});
+    const sessionCookie = lucia.createSessionCookie(session.id);
+    cookies().set(
+      sessionCookie.name,
+      sessionCookie.value,
+      sessionCookie.attributes,
+    );
 
-  return redirect("/");
+    return redirect("/");
+  } catch (e) {
+    if (e instanceof ValiError) return { error: e.message };
+
+    return {
+      error: "An unknown error occurred",
+    };
+  }
 }
 
 export async function logout(): Promise<ActionResult> {
