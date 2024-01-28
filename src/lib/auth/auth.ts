@@ -4,9 +4,15 @@ import { DrizzleSQLiteAdapter } from "@lucia-auth/adapter-drizzle";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { GitHub } from "arctic";
 
 const database = db as unknown as LibSQLDatabase;
 const adapter = new DrizzleSQLiteAdapter(database, sessionTable, userTable);
+
+export const github = new GitHub(
+  process.env.GITHUB_CLIENT_ID as string,
+  process.env.GITHUB_CLIENT_SECRET as string,
+);
 
 export const lucia = new Lucia(adapter, {
   sessionCookie: {
@@ -19,7 +25,10 @@ export const lucia = new Lucia(adapter, {
     return {
       email: attributes.email,
       role: attributes.roleId,
-      name: `${attributes.firstName} ${attributes.lastName}`,
+      firstName: attributes.firstName,
+      lastName: attributes.lastName,
+      githubId: attributes.githubId,
+      username: attributes.username,
     };
   },
 });
@@ -69,6 +78,8 @@ declare module "lucia" {
       lastName: string;
       email: string;
       roleId: number;
+      githubId: number;
+      username: string;
     };
   }
 }

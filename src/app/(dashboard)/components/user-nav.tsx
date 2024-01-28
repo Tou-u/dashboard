@@ -13,12 +13,20 @@ import { logout } from "@/lib/auth";
 import { User } from "lucia";
 
 export function UserNav({ user }: { user: User }) {
-  const name = user.name
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase());
+  let initials = null;
+  let fullname = null;
 
-  const initials = [name[0], name[name.length - 1]].join("");
+  if (user.firstName && user.lastName) {
+    fullname = `${user.firstName} ${user.lastName}`;
+    const name = fullname
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase());
+
+    initials = [name[0], name[name.length - 1]].join("");
+  } else {
+    initials = user.username.charAt(0);
+  }
 
   return (
     <DropdownMenu>
@@ -32,25 +40,23 @@ export function UserNav({ user }: { user: User }) {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none capitalize">
-              {user.name}
+            <p className="text-sm font-medium leading-none">
+              {fullname ? (
+                <span className="capitalize">{fullname}</span>
+              ) : (
+                user.username
+              )}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {user.email ?? null}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            Profile
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            Billing
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            Settings
-          </DropdownMenuItem>
+          <DropdownMenuItem>Profile</DropdownMenuItem>
+          <DropdownMenuItem>Billing</DropdownMenuItem>
+          <DropdownMenuItem>Settings</DropdownMenuItem>
           <DropdownMenuItem>New Team</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

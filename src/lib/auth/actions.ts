@@ -22,7 +22,7 @@ export async function createAccount(
 
     const { password, ...data } = rawData;
 
-    const hashedPassword = await new Argon2id().hash(password);
+    const hashedPassword = await new Argon2id().hash(password!);
     const userId = generateId(15);
 
     await db.insert(userTable).values({
@@ -39,7 +39,7 @@ export async function createAccount(
       sessionCookie.value,
       sessionCookie.attributes,
     );
-    
+
     return redirect("/");
   } catch (e) {
     if (e instanceof ValiError) return { error: e.message };
@@ -66,13 +66,13 @@ export async function login(
     );
 
     const existingUser = await db.query.userTable.findFirst({
-      where: eq(userTable.email, rawData.email),
+      where: eq(userTable.email, rawData.email!),
     });
     if (!existingUser) return { error: "Incorrect email or password" };
 
     const validPassword = await new Argon2id().verify(
-      existingUser.password,
-      rawData.password,
+      existingUser.password!,
+      rawData.password!,
     );
     if (!validPassword) return { error: "Incorrect email or password" };
 

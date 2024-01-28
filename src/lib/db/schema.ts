@@ -17,13 +17,15 @@ export const roleTable = sqliteTable("role", {
 
 export const userTable = sqliteTable("user", {
   id: text("id").primaryKey(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  email: text("email").unique().notNull(),
-  password: text("password").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  email: text("email").unique(),
+  password: text("password"),
   roleId: integer("role_id")
     .notNull()
     .references(() => roleTable.id),
+  githubId: integer("github_id").unique(),
+  username: text("username"),
 });
 
 export const sessionTable = sqliteTable("user_session", {
@@ -63,7 +65,7 @@ export const insertUserSchema = omit(
       minLength(6, "Your password must have 6 characters or more"),
     ]),
   }),
-  ["id", "roleId"],
+  ["id", "roleId", "githubId", "username"],
 );
 
 export const selectUserSchema = omit(
@@ -79,5 +81,5 @@ export const selectUserSchema = omit(
       minLength(6, "Your password must have 6 characters or more"),
     ]),
   }),
-  ["id", "firstName", "lastName", "roleId"],
+  ["id", "firstName", "lastName", "roleId", "githubId", "username"],
 );

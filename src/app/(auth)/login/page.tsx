@@ -22,6 +22,7 @@ export default async function Page() {
           <Input type="password" placeholder="••••••••" name="password" />
         </Label>
       </AuthForm>
+      <a href="/login/github">Sign in with Github</a>
     </div>
   );
 }
