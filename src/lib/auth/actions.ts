@@ -39,6 +39,8 @@ export async function createAccount(
       sessionCookie.value,
       sessionCookie.attributes,
     );
+    
+    return redirect("/");
   } catch (e) {
     if (e instanceof ValiError) return { error: e.message };
     if (e instanceof LibsqlError && e.code === "SQLITE_CONSTRAINT") {
@@ -46,11 +48,11 @@ export async function createAccount(
         error: "Email already used",
       };
     }
+
     return {
       error: "An unknown error occurred",
     };
   }
-  return redirect("/");
 }
 
 export async function login(
