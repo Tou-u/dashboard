@@ -7,7 +7,7 @@ export default {
   out: "./drizzle",
   driver: "turso",
   dbCredentials: {
-    url: process.env.TURSO_URL || "",
+    url: process.env.TURSO_URL || process.env.DATABASE_URL || "",
     authToken: process.env.TURSO_TOKEN || "",
   },
   breakpoints: true,
