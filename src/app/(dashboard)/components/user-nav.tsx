@@ -25,7 +25,7 @@ export function UserNav({ user }: { user: User }) {
 
     initials = [name[0], name[name.length - 1]].join("");
   } else {
-    initials = user.username.charAt(0);
+    initials = user.email.charAt(0).toUpperCase();
   }
 
   return (
@@ -41,11 +41,7 @@ export function UserNav({ user }: { user: User }) {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
-              {fullname ? (
-                <span className="capitalize">{fullname}</span>
-              ) : (
-                user.username
-              )}
+              {fullname ? <span className="capitalize">{fullname}</span> : null}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email ?? null}
