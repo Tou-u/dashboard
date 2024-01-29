@@ -28,7 +28,6 @@ export async function createAccount(
     await db.insert(userTable).values({
       id: userId,
       password: hashedPassword,
-      roleId: 1,
       ...data,
     });
 
@@ -43,7 +42,10 @@ export async function createAccount(
     return redirect("/");
   } catch (e) {
     if (e instanceof ValiError) return { error: e.message };
-    if (e instanceof LibsqlError && e.code === "SQLITE_CONSTRAINT") {
+    if (
+      (e instanceof LibsqlError && e.code === "SQLITE_CONSTRAINT") ||
+      (e instanceof LibsqlError && e.code === "SQLITE_CONSTRAINT_UNIQUE")
+    ) {
       return {
         error: "Email already used",
       };
@@ -66,9 +68,15 @@ export async function login(
     );
 
     const existingUser = await db.query.userTable.findFirst({
-      where: eq(userTable.email, rawData.email!),
+      where: eq(userTable.email, rawData.email),
     });
     if (!existingUser) return { error: "Incorrect email or password" };
+
+    if (existingUser.password === null) {
+      return {
+        error: "Account registered from oauth. Sign in with third-party app",
+      };
+    }
 
     const validPassword = await new Argon2id().verify(
       existingUser.password!,
@@ -87,7 +95,6 @@ export async function login(
     return redirect("/");
   } catch (e) {
     if (e instanceof ValiError) return { error: e.message };
-
     return {
       error: "An unknown error occurred",
     };

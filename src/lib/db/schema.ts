@@ -1,5 +1,10 @@
-import { relations } from "drizzle-orm";
-import { text, sqliteTable, integer } from "drizzle-orm/sqlite-core";
+import { relations, sql } from "drizzle-orm";
+import {
+  text,
+  sqliteTable,
+  integer,
+  primaryKey,
+} from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-valibot";
 import {
   email,
@@ -10,22 +15,16 @@ import {
   omit,
 } from "valibot";
 
-export const roleTable = sqliteTable("role", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").unique().notNull(),
-});
-
 export const userTable = sqliteTable("user", {
   id: text("id").primaryKey(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  email: text("email").unique(),
+  email: text("email").notNull().unique(),
   password: text("password"),
-  roleId: integer("role_id")
+  role: text("role", { enum: ["user", "admin"] })
     .notNull()
-    .references(() => roleTable.id),
-  githubId: integer("github_id").unique(),
-  username: text("username"),
+    .default("user"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const sessionTable = sqliteTable("user_session", {
@@ -36,10 +35,26 @@ export const sessionTable = sqliteTable("user_session", {
   expiresAt: integer("expires_at").notNull(),
 });
 
-export const userRelations = relations(userTable, ({ one }) => ({
-  role: one(roleTable, {
-    fields: [userTable.roleId],
-    references: [roleTable.id],
+export const oauthAccountTable = sqliteTable(
+  "oauth_account",
+  {
+    providerId: text("provider_id").notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => userTable.id),
+  },
+  (table) => {
+    return {
+      pk: primaryKey({ columns: [table.providerId, table.providerUserId] }),
+    };
+  },
+);
+
+export const oauthRelations = relations(oauthAccountTable, ({ one }) => ({
+  user: one(userTable, {
+    fields: [oauthAccountTable.userId],
+    references: [userTable.id],
   }),
 }));
 
@@ -65,7 +80,7 @@ export const insertUserSchema = omit(
       minLength(6, "Your password must have 6 characters or more"),
     ]),
   }),
-  ["id", "roleId", "githubId", "username"],
+  ["id", "role", "createdAt"],
 );
 
 export const selectUserSchema = omit(
@@ -81,5 +96,5 @@ export const selectUserSchema = omit(
       minLength(6, "Your password must have 6 characters or more"),
     ]),
   }),
-  ["id", "firstName", "lastName", "roleId", "githubId", "username"],
+  ["id", "firstName", "lastName", "role", "createdAt"],
 );

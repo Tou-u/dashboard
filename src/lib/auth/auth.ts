@@ -24,11 +24,9 @@ export const lucia = new Lucia(adapter, {
   getUserAttributes: (attributes) => {
     return {
       email: attributes.email,
-      role: attributes.roleId,
       firstName: attributes.firstName,
       lastName: attributes.lastName,
-      githubId: attributes.githubId,
-      username: attributes.username,
+      role: attributes.role,
     };
   },
 });
@@ -77,9 +75,7 @@ declare module "lucia" {
       firstName: string;
       lastName: string;
       email: string;
-      roleId: number;
-      githubId: number;
-      username: string;
+      role: string;
     };
   }
 }
