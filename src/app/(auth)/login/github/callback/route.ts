@@ -1,7 +1,7 @@
 import { github, lucia } from "@/lib/auth";
-import { db, userTable } from "@/lib/db";
+import { db, oauthAccountTable, userTable } from "@/lib/db";
 import { OAuth2RequestError } from "arctic";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { generateId } from "lucia";
 import { cookies } from "next/headers";
 
@@ -27,11 +27,41 @@ export async function GET(request: Request) {
     });
     const githubUser: GitHubUser = await githubUserResponse.json();
 
+    const emailsResponse = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${tokens.accessToken}`,
+      },
+    });
+    const emails = await emailsResponse.json();
+
+    const primaryEmail =
+      emails.find((email: { primary: string }) => email.primary) ?? null;
+
+    if (!primaryEmail) {
+      return new Response("No primary email address in your github account", {
+        status: 400,
+      });
+    }
+    if (!primaryEmail.verified) {
+      return new Response("Unverified email in your github account", {
+        status: 400,
+      });
+    }
+
     const existingUser = await db.query.userTable.findFirst({
-      where: eq(userTable.githubId, +githubUser.id),
+      where: eq(userTable.email, primaryEmail.email),
     });
 
     if (existingUser) {
+      await db
+        .insert(oauthAccountTable)
+        .values({
+          providerId: "github",
+          providerUserId: githubUser.id,
+          userId: existingUser.id,
+        })
+        .onConflictDoNothing();
+
       const session = await lucia.createSession(existingUser.id, {});
       const sessionCookie = lucia.createSessionCookie(session.id);
       cookies().set(
@@ -39,29 +69,31 @@ export async function GET(request: Request) {
         sessionCookie.value,
         sessionCookie.attributes,
       );
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: "/",
-        },
+    } else {
+      const userId = generateId(15);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(userTable).values({
+          id: userId,
+          email: primaryEmail.email,
+        });
+
+        await tx.insert(oauthAccountTable).values({
+          providerId: "github",
+          providerUserId: githubUser.id,
+          userId,
+        });
       });
+
+      const session = await lucia.createSession(userId, {});
+      const sessionCookie = lucia.createSessionCookie(session.id);
+      cookies().set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes,
+      );
     }
 
-    const userId = generateId(15);
-    await db.insert(userTable).values({
-      id: userId,
-      githubId: +githubUser.id,
-      username: githubUser.login,
-      roleId: 1,
-    });
-
-    const session = await lucia.createSession(userId, {});
-    const sessionCookie = lucia.createSessionCookie(session.id);
-    cookies().set(
-      sessionCookie.name,
-      sessionCookie.value,
-      sessionCookie.attributes,
-    );
     return new Response(null, {
       status: 302,
       headers: {
@@ -69,6 +101,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (e) {
+    console.log(e);
     if (
       e instanceof OAuth2RequestError &&
       e.message === "bad_verification_code"
